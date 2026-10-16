@@ -228,6 +228,24 @@ model.
 
 ---
 
+## Tests and Profiling
+
+The tests run on CPU with a tiny random-weight model, so they need no checkpoint, Mimi, tokenizer or
+watermark download:
+
+```bash
+pip install pytest
+pytest -q tests
+```
+
+To see where generation time goes on your hardware (time to first frame, backbone vs. audio-decoder time per
+frame, Mimi decode, watermarking, real-time factor):
+
+```bash
+python tools/profile_generate.py --device cuda   # Miso TTS 8B
+python tools/profile_generate.py --tiny          # quick CPU smoke run
+```
+
 ## Safety
 
 Miso TTS is a speech generation model. Do not use it to impersonate people,

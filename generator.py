@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import os
+import warnings
 from typing import List, Optional, Tuple
 
 os.environ.setdefault("HF_HUB_ETAG_TIMEOUT", "60")
@@ -152,9 +153,11 @@ class Generator:
                 f"Inputs too long, must be below max_seq_len - max_generation_len: {max_context_len}"
             )
 
+        hit_eos = False
         for _ in range(max_generation_len):
             sample = self._model.generate_frame(curr_tokens, curr_tokens_mask, curr_pos, temperature, topk)
             if torch.all(sample == 0):
+                hit_eos = True
                 break  # eos
 
             samples.append(sample)
@@ -164,6 +167,19 @@ class Generator:
                 [torch.ones_like(sample).bool(), torch.zeros(1, 1).bool().to(self.device)], dim=1
             ).unsqueeze(1)
             curr_pos = curr_pos[:, -1:] + 1
+
+        if not samples:
+            warnings.warn(
+                "The model produced an end-of-speech frame before any audio; returning empty audio.",
+                stacklevel=2,
+            )
+            return torch.zeros(0, device=self.device)
+        if not hit_eos:
+            warnings.warn(
+                f"Generation reached max_audio_length_ms={max_audio_length_ms:g} without an end-of-speech frame; "
+                "the audio may be cut off. Increase max_audio_length_ms or split the text.",
+                stacklevel=2,
+            )
 
         audio = self._audio_tokenizer.decode(torch.stack(samples).permute(1, 2, 0)).squeeze(0).squeeze(0)
 
